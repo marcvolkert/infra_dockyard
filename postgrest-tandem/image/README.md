@@ -1,8 +1,10 @@
-# postgrest-tandem image
+# PostgREST-Ready PostgreSQL Image
 
 PostgreSQL image for PostgREST-backed workloads.
 
 Key features: database-managed JWT secret, built-in auth/login RPC bootstrap, password hashing with pgcrypto, and plpython-based JWT signing without pgjwt.
+
+For more information, see the official PostgREST docs: https://postgrest.org/en/stable/
 
 Note: commands below use `podman`; using `docker` should work by replacing the binary name.
 
@@ -33,8 +35,28 @@ Entrypoint runs scripts lexicographically:
 
 ```bash
 cd postgrest-tandem/image
-podman build -t localhost/postgrest-db:16 -f Containerfile .
+VERSION=1.2.3
+
+# optional metadata from git
+GIT_SHA="$(git rev-parse --short=12 HEAD 2>/dev/null || echo unknown)"
+
+# build one image with multiple tags
+podman build -f Containerfile . \
+   --build-arg IMAGE_VERSION="$VERSION" \
+   --build-arg VCS_REF="$GIT_SHA" \
+   --build-arg POSTGRES_BASE_TAG=16 \
+   -t localhost/postgrest-db:"$VERSION" \
+   -t localhost/postgrest-db:"${VERSION%.*}" \
+   -t localhost/postgrest-db:latest
 ```
+
+Tag strategy in the example above:
+
+- `1.2.3` -> immutable release tag
+- `1.2` -> moving minor line
+- `latest` -> moving default tag
+
+If you publish to a registry, replace `localhost/postgrest-db` with your image path (for example `ghcr.io/<owner>/postgrest-db`).
 
 ## Run
 
@@ -47,7 +69,7 @@ export AUTHENTICATOR_PASSWORD='authenticator'
 podman run --rm --name postgrest-db -p 5432:5432 \
    -e POSTGRES_PASSWORD="$POSTGRES_PASSWORD" \
    -e AUTHENTICATOR_PASSWORD="$AUTHENTICATOR_PASSWORD" \
-   localhost/postgrest-db:16
+   localhost/postgrest-db:1.2.3
 ```
 
 Optional:
@@ -58,7 +80,7 @@ podman run -d --name postgrest-db -p 5433:5432 \
    -e POSTGRES_PASSWORD="$POSTGRES_PASSWORD" \
    -e AUTHENTICATOR_PASSWORD="$AUTHENTICATOR_PASSWORD" \
    -v postgrest-pgdata:/var/lib/postgresql/data \
-   localhost/postgrest-db:16
+   localhost/postgrest-db:1.2.3
 ```
 
 ## Smoke test
@@ -108,3 +130,10 @@ The token is suitable for `Authorization: Bearer <token>`.
 - JWTs are signed (tamper-proof), not encrypted (readable by holder).
 - Keep `postgrest.jwt_secret` private and rotate periodically.
 - Existing tokens become invalid immediately after secret rotation.
+
+## Upstream Attribution
+
+This image is based on the official PostgreSQL container image (`postgres`) and includes PostgreSQL software distributed under the PostgreSQL License.
+
+- Official PostgreSQL license: https://www.postgresql.org/about/licence/
+- Official Postgres container image: https://hub.docker.com/_/postgres

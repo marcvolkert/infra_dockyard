@@ -1,7 +1,17 @@
 # Custom Postgres image with PostgREST-ready init scripts baked in.
 # Build: podman build -t localhost/postgrest-db:16 -f postgres/Containerfile postgres
 #   or:  docker build -t localhost/postgrest-db:16 -f postgres/Containerfile postgres
-FROM postgres:16
+ARG POSTGRES_BASE_TAG=16
+FROM postgres:${POSTGRES_BASE_TAG}
+
+ARG IMAGE_VERSION=dev
+ARG VCS_REF=unknown
+LABEL org.opencontainers.image.title="postgrest-db" \
+    org.opencontainers.image.description="PostgreSQL image with PostgREST-ready init/auth/JWT bootstrap" \
+    org.opencontainers.image.version="${IMAGE_VERSION}" \
+    org.opencontainers.image.revision="${VCS_REF}" \
+    org.opencontainers.image.licenses="PostgreSQL" \
+    org.opencontainers.image.base.name="postgres:${POSTGRES_BASE_TAG}"
 
 ARG POSTGRESQL_PLPYTHON3_16_VERSION=16.*
 
