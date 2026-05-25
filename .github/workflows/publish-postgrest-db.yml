@@ -53,11 +53,6 @@ jobs:
           tags: |
             type=raw,value=${{ steps.vars.outputs.version }}
             type=raw,value=latest
-          labels: |
-            org.opencontainers.image.title=postgrest-db
-            org.opencontainers.image.description=PostgreSQL image with PostgREST-ready init/auth/JWT bootstrap
-            org.opencontainers.image.source=${{ github.server_url }}/${{ github.repository }}
-            org.opencontainers.image.version=${{ steps.vars.outputs.version }}
 
       - name: Build and push image
         uses: docker/build-push-action@v6
@@ -66,8 +61,8 @@ jobs:
           file: ./postgrest-tandem/image/Containerfile
           push: true
           tags: ${{ steps.meta.outputs.tags }}
-          labels: ${{ steps.meta.outputs.labels }}
           build-args: |
             IMAGE_VERSION=${{ steps.vars.outputs.version }}
             VCS_REF=${{ github.sha }}
+            SOURCE_URL=${{ github.server_url }}/${{ github.repository }}
             POSTGRES_BASE_TAG=16

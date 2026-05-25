@@ -6,10 +6,12 @@ FROM postgres:${POSTGRES_BASE_TAG}
 
 ARG IMAGE_VERSION=dev
 ARG VCS_REF=unknown
+ARG SOURCE_URL=unknown
 LABEL org.opencontainers.image.title="postgrest-db" \
     org.opencontainers.image.description="PostgreSQL image with PostgREST-ready init/auth/JWT bootstrap" \
     org.opencontainers.image.version="${IMAGE_VERSION}" \
     org.opencontainers.image.revision="${VCS_REF}" \
+    org.opencontainers.image.source="${SOURCE_URL}" \
     org.opencontainers.image.licenses="PostgreSQL" \
     org.opencontainers.image.base.name="postgres:${POSTGRES_BASE_TAG}"
 
