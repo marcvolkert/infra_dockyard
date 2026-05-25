@@ -1,0 +1,27 @@
+# Build artifacts
+dist/
+*.tgz
+
+# Helm
+charts/*/charts/
+charts/*/Chart.lock
+
+# Local secrets / overrides
+*.local.yaml
+*.secret.yaml
+.envrc
+.env
+.env.*
+
+# Editor / OS
+.DS_Store
+.idea/
+.vscode/
+*.swp
+*.swo
+*.bak
+*.tmp
+*.orig
+
+# Logs
+*.log

@@ -1,0 +1,25 @@
+# Custom Postgres image with PostgREST-ready init scripts baked in.
+# Build: podman build -t localhost/postgrest-db:16 -f postgres/Containerfile postgres
+#   or:  docker build -t localhost/postgrest-db:16 -f postgres/Containerfile postgres
+FROM postgres:16
+
+ARG POSTGRESQL_PLPYTHON3_16_VERSION=16.*
+
+ENV POSTGRES_USER=postgres \
+    POSTGRES_DB=postgres \
+    PGDATA=/var/lib/postgresql/data/pgdata
+
+# Dependencies:
+# - postgresql-plpython3-16: plpython3u runtime for JWT signing/rotation
+RUN apt-get update \
+ && apt-get install -y --no-install-recommends \
+    postgresql-plpython3-16=${POSTGRESQL_PLPYTHON3_16_VERSION} \
+ && rm -rf /var/lib/apt/lists/*
+
+COPY initdb/ /docker-entrypoint-initdb.d/
+
+# Ensure the shell script is executable inside the image regardless
+# of the host filesystem's mode bits (matters on Windows / some CI).
+RUN chmod 0755 /docker-entrypoint-initdb.d/*.sh
+
+EXPOSE 5432
