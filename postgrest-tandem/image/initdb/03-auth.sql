@@ -14,7 +14,7 @@ CREATE EXTENSION IF NOT EXISTS pgcrypto WITH SCHEMA auth;
 CREATE TABLE IF NOT EXISTS auth.users (
     id serial PRIMARY KEY,
     username text UNIQUE NOT NULL,
-    password TEXT NOT NULL CHECK (password ~ '^\$2[abxy]\$[0-9]{2}\$[./A-Za-z0-9]{53}$'), -- Enforce bcrypt hash format
+    password TEXT NOT NULL CHECK (PASSWORD ~ '^\$2[abxy]\$[0-9]{2}\$[./A-Za-z0-9]{53}$'), -- Enforce bcrypt hash format
     role TEXT NOT NULL CHECK (length(ROLE) < 512) DEFAULT 'anon'
 );
 CREATE OR REPLACE FUNCTION auth.hash_password ()

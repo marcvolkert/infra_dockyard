@@ -37,13 +37,16 @@ teardown_file() {
 }
 
 @test "auth.login wrong password raises invalid_password SQLSTATE 28P01" {
-  run psql_super "DO \
-  \\$\\$ BEGIN \
-    PERFORM auth.login('alice', 'wrong-password'); \
-    RAISE EXCEPTION 'expected invalid password'; \
-  EXCEPTION WHEN invalid_password THEN \
-    RAISE NOTICE 'caught:%', SQLSTATE; \
-  END \\$\\$;"
+  read -r -d '' sql <<'SQL' || true
+DO $$ BEGIN
+  PERFORM auth.login('alice', 'wrong-password');
+  RAISE EXCEPTION 'expected invalid password';
+EXCEPTION WHEN invalid_password THEN
+  RAISE NOTICE 'caught:%', SQLSTATE;
+END $$;
+SQL
+
+  run psql_super "$sql"
   [ "$status" -eq 0 ]
   [[ "$output" == *"caught:28P01"* ]]
 }
@@ -57,7 +60,7 @@ teardown_file() {
 @test "inserting user with short password is rejected" {
   run psql_super_raw "INSERT INTO auth.users (username, password, role) VALUES ('short-pass', 'short', 'anon');"
   [ "$status" -ne 0 ]
-  [[ "$output" == *"violates check constraint"* ]]
+  [[ "$output" == *"password must be between 8 and 512 characters"* ]]
 }
 
 @test "updating password re-hashes to a different bcrypt hash" {

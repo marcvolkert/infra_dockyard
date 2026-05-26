@@ -21,7 +21,7 @@ teardown_file() {
 }
 
 @test "pre_config exposes the persisted secret via pgrst.jwt_secret" {
-  run psql_super "WITH _ AS (SELECT postgrest.pre_config()) SELECT current_setting('pgrst.jwt_secret', true);"
+  run psql_super "WITH cfg AS (SELECT postgrest.pre_config()) SELECT current_setting('pgrst.jwt_secret', true) FROM cfg;"
   [ "$status" -eq 0 ]
   config_secret="$output"
 

@@ -32,7 +32,7 @@ psql_authenticator() {
 
 wait_for_postgres() {
   local attempts=60
-  while (( attempts > 0 )); do
+  while ((attempts > 0)); do
     if psql_super 'SELECT 1;' >/dev/null 2>&1; then
       return 0
     fi
@@ -76,7 +76,7 @@ decode_jwt_payload() {
   local rem
 
   payload="$(printf '%s' "$token" | cut -d'.' -f2 | tr '_-' '/+')"
-  rem=$(( ${#payload} % 4 ))
+  rem=$((${#payload} % 4))
   if [ "$rem" -eq 2 ]; then
     payload+="=="
   elif [ "$rem" -eq 3 ]; then
