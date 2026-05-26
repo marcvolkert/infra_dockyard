@@ -10,6 +10,9 @@ on:
     paths:
       - 'postgrest-tandem/**'
 
+permissions:
+  contents: read
+
 jobs:
   build:
     runs-on: ubuntu-latest
