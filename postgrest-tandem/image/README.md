@@ -145,6 +145,11 @@ docker build -f postgrest-tandem/image/Containerfile postgrest-tandem/image \
 
 # Execute all integration tests.
 TEST_IMAGE=local/postgrest-db:ci bats postgrest-tandem/tests/
+
+# Or run with podman.
+podman build -f postgrest-tandem/image/Containerfile postgrest-tandem/image \
+  -t local/postgrest-db:ci
+CONTAINER_RUNTIME=podman TEST_IMAGE=local/postgrest-db:ci bats postgrest-tandem/tests/
 ```
 
 Notes:

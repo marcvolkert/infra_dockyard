@@ -5,6 +5,15 @@ POSTGREST_DB_PORT="55432"
 POSTGRES_PASSWORD="postgres-ci-only"
 AUTHENTICATOR_PASSWORD="testpw-ci-only"
 TEST_IMAGE="${TEST_IMAGE:-local/postgrest-db:ci}"
+CONTAINER_RUNTIME="${CONTAINER_RUNTIME:-docker}"
+
+ctr() {
+  command -v "$CONTAINER_RUNTIME" >/dev/null 2>&1 || {
+    echo "container runtime not found: $CONTAINER_RUNTIME" >&2
+    return 1
+  }
+  "$CONTAINER_RUNTIME" "$@"
+}
 
 psql_super() {
   PGPASSWORD="$POSTGRES_PASSWORD" psql -X -qAt -v ON_ERROR_STOP=1 \
@@ -34,21 +43,21 @@ wait_for_postgres() {
 }
 
 start_postgrest_db() {
-  docker rm -f "$POSTGREST_DB_CONTAINER" >/dev/null 2>&1 || true
-  docker run -d --name "$POSTGREST_DB_CONTAINER" \
+  ctr rm -f "$POSTGREST_DB_CONTAINER" >/dev/null 2>&1 || true
+  ctr run -d --name "$POSTGREST_DB_CONTAINER" \
     -p "$POSTGREST_DB_PORT:5432" \
     -e POSTGRES_PASSWORD="$POSTGRES_PASSWORD" \
     -e AUTHENTICATOR_PASSWORD="$AUTHENTICATOR_PASSWORD" \
     "$TEST_IMAGE" >/dev/null
 
   if ! wait_for_postgres; then
-    docker logs "$POSTGREST_DB_CONTAINER" >&2 || true
+    ctr logs "$POSTGREST_DB_CONTAINER" >&2 || true
     return 1
   fi
 }
 
 stop_postgrest_db() {
-  docker rm -f "$POSTGREST_DB_CONTAINER" >/dev/null 2>&1 || true
+  ctr rm -f "$POSTGREST_DB_CONTAINER" >/dev/null 2>&1 || true
 }
 
 ensure_alice_user() {
