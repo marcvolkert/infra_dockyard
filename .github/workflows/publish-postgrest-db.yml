@@ -1,5 +1,4 @@
 name: Publish postgrest-db image
-
 on:
   push:
     tags:
@@ -10,28 +9,23 @@ on:
         description: "Version tag to publish (for example 0.0.1)"
         required: true
         default: "0.0.1"
-
 jobs:
   publish:
     runs-on: ubuntu-latest
     permissions:
       contents: read
       packages: write
-
     steps:
       - name: Checkout
         uses: actions/checkout@v4
-
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
-
       - name: Log in to GHCR
         uses: docker/login-action@v3
         with:
           registry: ghcr.io
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
-
       - name: Compute image version
         id: vars
         shell: bash
@@ -44,7 +38,6 @@ jobs:
 
           echo "version=${VERSION}" >> "$GITHUB_OUTPUT"
           echo "image=ghcr.io/${GITHUB_REPOSITORY_OWNER}/postgrest-db" >> "$GITHUB_OUTPUT"
-
       - name: Extract Docker metadata
         id: meta
         uses: docker/metadata-action@v5
@@ -53,7 +46,6 @@ jobs:
           tags: |
             type=raw,value=${{ steps.vars.outputs.version }}
             type=raw,value=latest
-
       - name: Build image for vulnerability scan
         uses: docker/build-push-action@v6
         with:
@@ -67,16 +59,14 @@ jobs:
             VCS_REF=${{ github.sha }}
             SOURCE_URL=${{ github.server_url }}/${{ github.repository }}
             POSTGRES_BASE_TAG=16
-
       - name: Scan image with Trivy
-        uses: aquasecurity/trivy-action@0.25.0
+        uses: aquasecurity/trivy-action@v0.36.0
         with:
           image-ref: ${{ steps.vars.outputs.image }}:${{ steps.vars.outputs.version }}
           format: table
           exit-code: '1'
           severity: CRITICAL,HIGH
           ignore-unfixed: true
-
       - name: Build and push image
         uses: docker/build-push-action@v6
         with:
