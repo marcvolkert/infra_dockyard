@@ -125,6 +125,38 @@ echo "$TOKEN"
 
 The token is suitable for `Authorization: Bearer <token>`.
 
+## Local integration tests (BATS)
+
+The integration suite under `postgrest-tandem/tests/` validates bootstrap scripts, auth/JWT behavior, and privilege boundaries directly via `psql`.
+
+### Prerequisites
+
+- Docker (or Podman with equivalent commands)
+- `bats`, `jq`, and `psql` available on your machine
+
+### Run locally
+
+From the repository root:
+
+```bash
+# Build the image used by the test harness.
+docker build -f postgrest-tandem/image/Containerfile postgrest-tandem/image \
+  -t local/postgrest-db:ci
+
+# Execute all integration tests.
+TEST_IMAGE=local/postgrest-db:ci bats postgrest-tandem/tests/
+
+# Or run with podman.
+podman build -f postgrest-tandem/image/Containerfile postgrest-tandem/image \
+  -t local/postgrest-db:ci
+CONTAINER_RUNTIME=podman TEST_IMAGE=local/postgrest-db:ci bats postgrest-tandem/tests/
+```
+
+Notes:
+
+- The test harness uses a fixed dummy credential (`AUTHENTICATOR_PASSWORD=testpw-ci-only`) for CI/local testing only.
+- Tests start and remove their own temporary database container.
+
 ## Notes
 
 - JWTs are signed (tamper-proof), not encrypted (readable by holder).

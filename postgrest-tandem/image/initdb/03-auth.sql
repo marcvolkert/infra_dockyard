@@ -14,7 +14,7 @@ CREATE EXTENSION IF NOT EXISTS pgcrypto WITH SCHEMA auth;
 CREATE TABLE IF NOT EXISTS auth.users (
     id serial PRIMARY KEY,
     username text UNIQUE NOT NULL,
-    password TEXT NOT NULL CHECK (length(PASSWORD) BETWEEN 8 AND 512),
+    password TEXT NOT NULL CHECK (PASSWORD ~ '^\$2[abxy]\$[0-9]{2}\$[./A-Za-z0-9]{53}$'), -- Enforce bcrypt hash format
     role TEXT NOT NULL CHECK (length(ROLE) < 512) DEFAULT 'anon'
 );
 CREATE OR REPLACE FUNCTION auth.hash_password ()
@@ -22,6 +22,10 @@ CREATE OR REPLACE FUNCTION auth.hash_password ()
     AS $$
 BEGIN
     IF NEW.password IS NOT NULL AND (TG_OP = 'INSERT' OR NEW.password <> OLD.password) THEN
+        IF length(NEW.password) < 8 OR length(NEW.password) > 512 THEN
+            RAISE EXCEPTION 'password must be between 8 and 512 characters'
+                USING ERRCODE = '22023';
+        END IF;
         NEW.password := auth.crypt(NEW.password, auth.gen_salt('bf'));
     END IF;
     RETURN NEW;
