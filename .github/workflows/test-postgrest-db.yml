@@ -1,4 +1,4 @@
-name: CI test postgrest-db
+name: test-postgrest-db
 "on":
   pull_request:
     branches:
