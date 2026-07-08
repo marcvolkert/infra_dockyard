@@ -1,14 +1,8 @@
 name: Publish postgrest-db image
-on:
-  push:
-    tags:
-      - "v*"
-  workflow_dispatch:
-    inputs:
-      version:
-        description: "Version tag to publish (for example 0.0.1)"
-        required: true
-        default: "0.0.1"
+"on":
+  release:
+    types:
+      - published
 jobs:
   publish:
     runs-on: ubuntu-latest
@@ -18,17 +12,24 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v4
-        with:
-          fetch-depth: 0
-      - name: Guard publish to main lineage
+      - name: Determine release channel
+        id: release
         shell: bash
         run: |
-          git fetch --no-tags origin main
-          if ! git merge-base --is-ancestor "$GITHUB_SHA" origin/main; then
-            echo "Ref $GITHUB_SHA is not reachable from origin/main."
-            echo "Publish is only allowed for commits that are on main."
-            exit 1
+          VERSION="${{ github.event.release.tag_name }}"
+          VERSION="${VERSION#v}"
+
+          if [[ "${{ github.event.release.prerelease }}" == "true" ]]; then
+            CHANNEL="prerelease"
+            PRERELEASE="true"
+          else
+            CHANNEL="release"
+            PRERELEASE="false"
           fi
+
+          echo "version=${VERSION}" >> "$GITHUB_OUTPUT"
+          echo "channel=${CHANNEL}" >> "$GITHUB_OUTPUT"
+          echo "prerelease=${PRERELEASE}" >> "$GITHUB_OUTPUT"
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
       - name: Log in to GHCR
@@ -37,26 +38,19 @@ jobs:
           registry: ghcr.io
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
-      - name: Compute image version
+      - name: Compute image metadata
         id: vars
         shell: bash
         run: |
-          if [[ "${GITHUB_EVENT_NAME}" == "workflow_dispatch" ]]; then
-            VERSION="${{ github.event.inputs.version }}"
-          else
-            VERSION="${GITHUB_REF_NAME#v}"
-          fi
-
-          echo "version=${VERSION}" >> "$GITHUB_OUTPUT"
-          echo "image=ghcr.io/${GITHUB_REPOSITORY_OWNER}/postgrest-db" >> "$GITHUB_OUTPUT"
+          echo "image=ghcr.io/${GITHUB_REPOSITORY_OWNER,,}/postgrest-db" >> "$GITHUB_OUTPUT"
       - name: Extract Docker metadata
         id: meta
         uses: docker/metadata-action@v5
         with:
           images: ${{ steps.vars.outputs.image }}
           tags: |
-            type=raw,value=${{ steps.vars.outputs.version }}
-            type=raw,value=latest
+            type=raw,value=${{ steps.release.outputs.version }}
+            type=raw,value=latest,enable=${{ steps.release.outputs.channel == 'release' }}
       - name: Build image for vulnerability scan
         uses: docker/build-push-action@v6
         with:
@@ -64,16 +58,16 @@ jobs:
           file: ./postgrest-tandem/image/Containerfile
           push: false
           load: true
-          tags: ${{ steps.vars.outputs.image }}:${{ steps.vars.outputs.version }}
+          tags: ${{ steps.vars.outputs.image }}:${{ steps.release.outputs.version }}
           build-args: |
-            IMAGE_VERSION=${{ steps.vars.outputs.version }}
+            IMAGE_VERSION=${{ steps.release.outputs.version }}
             VCS_REF=${{ github.sha }}
             SOURCE_URL=${{ github.server_url }}/${{ github.repository }}
             POSTGRES_BASE_TAG=16
       - name: Scan image with Trivy
         uses: aquasecurity/trivy-action@v0.36.0
         with:
-          image-ref: ${{ steps.vars.outputs.image }}:${{ steps.vars.outputs.version }}
+          image-ref: ${{ steps.vars.outputs.image }}:${{ steps.release.outputs.version }}
           format: table
           exit-code: '1'
           severity: CRITICAL,HIGH
@@ -86,7 +80,7 @@ jobs:
           push: true
           tags: ${{ steps.meta.outputs.tags }}
           build-args: |
-            IMAGE_VERSION=${{ steps.vars.outputs.version }}
+            IMAGE_VERSION=${{ steps.release.outputs.version }}
             VCS_REF=${{ github.sha }}
             SOURCE_URL=${{ github.server_url }}/${{ github.repository }}
             POSTGRES_BASE_TAG=16

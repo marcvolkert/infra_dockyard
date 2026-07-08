@@ -1,13 +1,11 @@
-name: CI test postgrest-db
-on:
+name: test-postgrest-db
+"on":
   pull_request:
-    paths:
-      - 'postgrest-tandem/**'
-  push:
     branches:
+      - dev
       - main
     paths:
-      - 'postgrest-tandem/**'
+      - "postgrest-tandem/**"
 permissions:
   contents: read
 jobs:
