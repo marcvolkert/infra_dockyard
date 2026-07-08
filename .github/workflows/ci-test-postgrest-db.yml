@@ -4,33 +4,12 @@ name: CI test postgrest-db
     branches:
       - dev
       - main
-  push:
-    branches:
-      - dev
-      - main
+    paths:
+      - "postgrest-tandem/**"
 permissions:
   contents: read
 jobs:
-  validate-branch-name:
-    if: github.event_name == 'pull_request'
-    runs-on: ubuntu-latest
-    steps:
-      - name: Validate supported branch naming
-        env:
-          HEAD_REF: ${{ github.head_ref }}
-        run: |
-          case "$HEAD_REF" in
-            dev|main|feature/*|copilot/*)
-              ;;
-            *)
-              echo "Unsupported source branch: $HEAD_REF"
-              echo "Expected one of: dev, main, feature/*, copilot/*"
-              exit 1
-              ;;
-          esac
   build:
-    needs: validate-branch-name
-    if: ${{ always() && (needs.validate-branch-name.result == 'success' || needs.validate-branch-name.result == 'skipped') }}
     runs-on: ubuntu-latest
     steps:
       - name: Checkout

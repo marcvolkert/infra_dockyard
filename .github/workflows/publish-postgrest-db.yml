@@ -3,6 +3,8 @@ name: Publish postgrest-db image
   push:
     tags:
       - "v*"
+    paths:
+      - "postgrest-tandem/**"
 jobs:
   publish:
     runs-on: ubuntu-latest
@@ -18,7 +20,7 @@ jobs:
         shell: bash
         run: |
           git fetch --no-tags origin main:refs/remotes/origin/main
-          git fetch --no-tags origin dev:refs/remotes/origin/dev || true
+          git fetch --no-tags origin dev:refs/remotes/origin/dev
       - name: Determine release channel
         id: release
         shell: bash
@@ -28,8 +30,7 @@ jobs:
           if git merge-base --is-ancestor "$GITHUB_SHA" origin/main; then
             CHANNEL="release"
             PRERELEASE="false"
-          elif git show-ref --verify --quiet refs/remotes/origin/dev \
-            && git merge-base --is-ancestor "$GITHUB_SHA" origin/dev; then
+          elif git merge-base --is-ancestor "$GITHUB_SHA" origin/dev; then
             CHANNEL="prerelease"
             PRERELEASE="true"
           else
