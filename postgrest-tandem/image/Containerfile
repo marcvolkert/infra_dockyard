@@ -28,11 +28,10 @@ RUN apt-get update \
     postgresql-plpython3-16=${POSTGRESQL_PLPYTHON3_16_VERSION} \
  && rm -rf /var/lib/apt/lists/*
 
-COPY bin/gosu /usr/local/bin/gosu
 COPY initdb/ /docker-entrypoint-initdb.d/
 
 # Ensure the shell script is executable inside the image regardless
 # of the host filesystem's mode bits (matters on Windows / some CI).
-RUN chmod 0755 /usr/local/bin/gosu /docker-entrypoint-initdb.d/*.sh
+RUN chmod 0755 /docker-entrypoint-initdb.d/*.sh
 
 EXPOSE 5432
