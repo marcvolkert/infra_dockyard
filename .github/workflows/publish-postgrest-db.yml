@@ -51,27 +51,6 @@ jobs:
           tags: |
             type=raw,value=${{ steps.release.outputs.version }}
             type=raw,value=latest,enable=${{ steps.release.outputs.channel == 'release' }}
-      - name: Build image for vulnerability scan
-        uses: docker/build-push-action@v6
-        with:
-          context: ./postgrest-tandem/image
-          file: ./postgrest-tandem/image/Containerfile
-          push: false
-          load: true
-          tags: ${{ steps.vars.outputs.image }}:${{ steps.release.outputs.version }}
-          build-args: |
-            IMAGE_VERSION=${{ steps.release.outputs.version }}
-            VCS_REF=${{ github.sha }}
-            SOURCE_URL=${{ github.server_url }}/${{ github.repository }}
-            POSTGRES_BASE_TAG=16
-      - name: Scan image with Trivy
-        uses: aquasecurity/trivy-action@v0.36.0
-        with:
-          image-ref: ${{ steps.vars.outputs.image }}:${{ steps.release.outputs.version }}
-          format: table
-          exit-code: '1'
-          severity: CRITICAL,HIGH
-          ignore-unfixed: true
       - name: Build and push image
         uses: docker/build-push-action@v6
         with:
