@@ -1,0 +1,25 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+if [[ $# -lt 2 ]]; then
+  echo "usage: gosu user[:group] command [args...]" >&2
+  exit 1
+fi
+
+target="$1"
+shift
+
+user="${target%%:*}"
+group=""
+
+if [[ "$target" == *:* ]]; then
+  group="${target#*:}"
+else
+  group="$(id -g "$user")"
+fi
+
+if [[ "$target" == *:* ]]; then
+  exec setpriv --reuid "$user" --regid "$group" --clear-groups "$@"
+fi
+
+exec setpriv --reuid "$user" --regid "$group" --init-groups "$@"
