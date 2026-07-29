@@ -40,20 +40,18 @@ VERSION=1.2.3
 # optional metadata from git
 GIT_SHA="$(git rev-parse --short=12 HEAD 2>/dev/null || echo unknown)"
 
-# build one image with multiple tags
+# build with a version tag and move the latest pointer
 podman build -f Containerfile . \
    --build-arg IMAGE_VERSION="$VERSION" \
    --build-arg VCS_REF="$GIT_SHA" \
    --build-arg POSTGRES_BASE_TAG=16 \
    -t localhost/postgrest-db:"$VERSION" \
-   -t localhost/postgrest-db:"${VERSION%.*}" \
    -t localhost/postgrest-db:latest
 ```
 
 Tag strategy in the example above:
 
 - `1.2.3` -> immutable release tag
-- `1.2` -> moving minor line
 - `latest` -> moving default tag
 
 If you publish to a registry, replace `localhost/postgrest-db` with your image path (for example `ghcr.io/<owner>/postgrest-db`).
@@ -64,12 +62,13 @@ For additional supported environment variables, see the official Postgres image 
 
 ```bash
 cd postgrest-tandem/image
+VERSION=1.2.3
 export POSTGRES_PASSWORD='postgres'
 export AUTHENTICATOR_PASSWORD='authenticator'
 podman run --rm --name postgrest-db -p 5432:5432 \
    -e POSTGRES_PASSWORD="$POSTGRES_PASSWORD" \
    -e AUTHENTICATOR_PASSWORD="$AUTHENTICATOR_PASSWORD" \
-   localhost/postgrest-db:1.2.3
+   localhost/postgrest-db:"$VERSION"
 ```
 
 Optional:
@@ -80,7 +79,7 @@ podman run -d --name postgrest-db -p 5433:5432 \
    -e POSTGRES_PASSWORD="$POSTGRES_PASSWORD" \
    -e AUTHENTICATOR_PASSWORD="$AUTHENTICATOR_PASSWORD" \
    -v postgrest-pgdata:/var/lib/postgresql/data \
-   localhost/postgrest-db:1.2.3
+   localhost/postgrest-db:"$VERSION"
 ```
 
 ## Smoke test
@@ -131,7 +130,7 @@ The integration suite under `postgrest-tandem/tests/` validates bootstrap script
 
 ### Prerequisites
 
-- Docker (or Podman with equivalent commands)
+- Podman (or Docker with equivalent commands)
 - `bats`, `jq`, and `psql` available on your machine
 
 ### Run locally
@@ -140,16 +139,16 @@ From the repository root:
 
 ```bash
 # Build the image used by the test harness.
-docker build -f postgrest-tandem/image/Containerfile postgrest-tandem/image \
+podman build -f postgrest-tandem/image/Containerfile postgrest-tandem/image \
   -t local/postgrest-db:ci
 
 # Execute all integration tests.
-TEST_IMAGE=local/postgrest-db:ci bats postgrest-tandem/tests/
-
-# Or run with podman.
-podman build -f postgrest-tandem/image/Containerfile postgrest-tandem/image \
-  -t local/postgrest-db:ci
 CONTAINER_RUNTIME=podman TEST_IMAGE=local/postgrest-db:ci bats postgrest-tandem/tests/
+
+# Or run with docker.
+docker build -f postgrest-tandem/image/Containerfile postgrest-tandem/image \
+  -t local/postgrest-db:ci
+TEST_IMAGE=local/postgrest-db:ci bats postgrest-tandem/tests/
 ```
 
 Notes:
@@ -167,7 +166,7 @@ Two workflows ship with this repository, both located under `.github/workflows/`
 
 **Jobs (sequential):**
 
-1. **build** — builds the image with `docker/build-push-action` and exports it as a `.tar` artifact (`postgrest-db-image`) instead of pushing to a registry.
+1. **build** — builds the image with `docker/build-push-action` and exports it as a `.tar` artifact (`postgrest-db-image`). The tarball is necessary because each job runs on a fresh runner with its own isolated Docker daemon; passing an artifact is the standard way to share an image between jobs without pushing it to a registry.
 2. **integration-test** — downloads the artifact, loads it with `docker load`, installs `bats`, `jq`, and `psql`, then runs the full BATS suite via `bats postgrest-tandem/tests/` with `TEST_IMAGE=local/postgrest-db:ci`.
 
 The workflow uses the same image tag (`local/postgrest-db:ci`) and the same dummy credentials (`AUTHENTICATOR_PASSWORD=testpw-ci-only`) as the local test instructions above.
