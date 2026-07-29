@@ -55,4 +55,5 @@ jobs:
       - name: Run BATS integration tests
         env:
           TEST_IMAGE: local/postgrest-db:ci
+          CONTAINER_RUNTIME: docker
         run: bats postgrest-tandem/tests/
