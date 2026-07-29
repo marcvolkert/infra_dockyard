@@ -2,6 +2,21 @@
 
 PostgreSQL image for PostgREST-backed workloads.
 
+## Table of Contents
+
+- [Files](#files)
+- [Init order](#init-order)
+- [Build](#build)
+- [Run](#run)
+- [Smoke test](#smoke-test)
+- [Local integration tests (BATS)](#local-integration-tests-bats)
+  - [Run locally](#run-locally)
+- [CI/CD](#cicd)
+  - [`test-postgrest-db` — integration tests on pull requests](#test-postgrest-db--integration-tests-on-pull-requests)
+  - [`publish-postgrest-db` — image publish on release](#publish-postgrest-db--image-publish-on-release)
+- [Notes](#notes)
+- [Upstream Attribution](#upstream-attribution)
+
 Key features: database-managed JWT secret, built-in auth/login RPC bootstrap, password hashing with pgcrypto, and plpython-based JWT signing without pgjwt.
 
 For more information, see the official PostgREST docs: https://postgrest.org/en/stable/
@@ -128,27 +143,14 @@ The token is suitable for `Authorization: Bearer <token>`.
 
 The integration suite under `postgrest-tandem/tests/` validates bootstrap scripts, auth/JWT behavior, and privilege boundaries directly via `psql`.
 
-### Prerequisites
-
-- Podman (or Docker with equivalent commands)
-- `bats`, `jq`, and `psql` available on your machine
-
 ### Run locally
 
 From the repository root:
 
+**With bats** — requires `bats`, `jq`, `psql`, and `podman` on your PATH:
+
 ```bash
-# Build the image used by the test harness.
-podman build -f postgrest-tandem/image/Containerfile postgrest-tandem/image \
-  -t local/postgrest-db:ci
-
-# Execute all integration tests.
-CONTAINER_RUNTIME=podman TEST_IMAGE=local/postgrest-db:ci bats postgrest-tandem/tests/
-
-# Or run with docker.
-docker build -f postgrest-tandem/image/Containerfile postgrest-tandem/image \
-  -t local/postgrest-db:ci
-TEST_IMAGE=local/postgrest-db:ci bats postgrest-tandem/tests/
+bats postgrest-tandem/tests/
 ```
 
 Notes:
@@ -166,7 +168,7 @@ Two workflows ship with this repository, both located under `.github/workflows/`
 
 **Jobs (sequential):**
 
-1. **build** — builds the image with `docker/build-push-action` and exports it as a `.tar` artifact (`postgrest-db-image`). The tarball is necessary because each job runs on a fresh runner with its own isolated Docker daemon; passing an artifact is the standard way to share an image between jobs without pushing it to a registry.
+1. **build** — builds the image with `docker/build-push-action` and exports it as a `.tar` artifact (`postgrest-db-image`).
 2. **integration-test** — downloads the artifact, loads it with `docker load`, installs `bats`, `jq`, and `psql`, then runs the full BATS suite via `bats postgrest-tandem/tests/` with `TEST_IMAGE=local/postgrest-db:ci`.
 
 The workflow uses the same image tag (`local/postgrest-db:ci`) and the same dummy credentials (`AUTHENTICATOR_PASSWORD=testpw-ci-only`) as the local test instructions above.
