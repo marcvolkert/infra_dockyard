@@ -157,6 +157,36 @@ Notes:
 - The test harness uses a fixed dummy credential (`AUTHENTICATOR_PASSWORD=testpw-ci-only`) for CI/local testing only.
 - Tests start and remove their own temporary database container.
 
+## CI/CD
+
+Two workflows ship with this repository, both located under `.github/workflows/`.
+
+### `test-postgrest-db` — integration tests on pull requests
+
+**Trigger:** any pull request that targets `dev` or `main` and touches a file inside `postgrest-tandem/**`.
+
+**Jobs (sequential):**
+
+1. **build** — builds the image with `docker/build-push-action` and exports it as a `.tar` artifact (`postgrest-db-image`) instead of pushing to a registry.
+2. **integration-test** — downloads the artifact, loads it with `docker load`, installs `bats`, `jq`, and `psql`, then runs the full BATS suite via `bats postgrest-tandem/tests/` with `TEST_IMAGE=local/postgrest-db:ci`.
+
+The workflow uses the same image tag (`local/postgrest-db:ci`) and the same dummy credentials (`AUTHENTICATOR_PASSWORD=testpw-ci-only`) as the local test instructions above.
+
+### `publish-postgrest-db` — image publish on release
+
+**Trigger:** a GitHub release is published (i.e. the `published` release event). Works for both full releases and pre-releases.
+
+**Steps:**
+
+1. **Determine release channel** — strips the leading `v` from the tag name and sets `channel=release` (or `prerelease` for pre-releases).
+2. **Log in to GHCR** — authenticates with `secrets.GITHUB_TOKEN` (no additional secrets needed).
+3. **Extract Docker metadata** — builds the tag list:
+   - `ghcr.io/<owner>/postgrest-db:<version>` — always applied.
+   - `ghcr.io/<owner>/postgrest-db:latest` — only applied for full (non-pre) releases.
+4. **Build and push** — builds from `postgrest-tandem/image/Containerfile` with `IMAGE_VERSION`, `VCS_REF` (full commit SHA), `SOURCE_URL`, and `POSTGRES_BASE_TAG=16` baked in as OCI labels, then pushes to GHCR.
+
+To publish a new version, create and publish a GitHub release whose tag follows semver (e.g. `v1.2.3`). Pre-releases (marked as pre-release on GitHub) receive only the version tag; stable releases additionally move the `latest` tag.
+
 ## Notes
 
 - JWTs are signed (tamper-proof), not encrypted (readable by holder).
