@@ -18,6 +18,17 @@ spec:
         app: {{ include "name" . }}
         component: postgrest
     spec:
+      initContainers:
+        - name: wait-for-postgres
+          image: postgres:16
+          command:
+            - sh
+            - -c
+            - |
+              until pg_isready -h {{ include "name" . }}-postgres -p {{ .Values.postgres.port }}; do
+                echo 'Waiting for PostgreSQL...'
+                sleep 2
+              done
       containers:
         - name: postgrest
           image: {{ .Values.postgrest.image }}
@@ -32,16 +43,14 @@ spec:
             - name: PGRST_SERVER_PORT
               value: "3000"
           livenessProbe:
-            httpGet:
-              path: /
+            tcpSocket:
               port: 3000
-            initialDelaySeconds: 30
+            initialDelaySeconds: 60
             periodSeconds: 10
           readinessProbe:
-            httpGet:
-              path: /
+            tcpSocket:
               port: 3000
-            initialDelaySeconds: 5
+            initialDelaySeconds: 15
             periodSeconds: 5
           {{- if .Values.postgrest.resources }}
           resources:
