@@ -1,0 +1,58 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  namespace: {{ .Values.namespace }}
+  name: {{ include "name" . }}-postgrest
+  labels:
+    app: {{ include "name" . }}
+    component: postgrest
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: {{ include "name" . }}
+      component: postgrest
+  template:
+    metadata:
+      labels:
+        app: {{ include "name" . }}
+        component: postgrest
+    spec:
+      containers:
+        - name: postgrest
+          image: {{ .Values.postgrest.image }}
+          imagePullPolicy: IfNotPresent
+          ports:
+            - containerPort: 3000
+              name: http
+          envFrom:
+            - secretRef:
+                name: {{ include "name" . }}-postgrest
+          env:
+            - name: PGRST_SERVER_PORT
+              value: "3000"
+          livenessProbe:
+            httpGet:
+              path: /
+              port: 3000
+            initialDelaySeconds: 30
+            periodSeconds: 10
+          readinessProbe:
+            httpGet:
+              path: /
+              port: 3000
+            initialDelaySeconds: 5
+            periodSeconds: 5
+          {{- if .Values.postgrest.resources }}
+          resources:
+            {{- toYaml .Values.postgrest.resources | nindent 12 }}
+          {{- end }}
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities:
+              drop:
+                - ALL
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 65534
