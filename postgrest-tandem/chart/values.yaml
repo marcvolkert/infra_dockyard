@@ -5,7 +5,7 @@ namespace: postgrest-tandem
 # PostgreSQL Database
 postgres:
   # Docker image for PostgreSQL (with PostgREST bootstrap scripts baked in)
-  image: ghcr.io/marcvolkert/postgrest-db:latest 
+  image: ghcr.io/marcvolkert/postgrest-db:latest
   # PostgreSQL port
   port: 5432
   # Superuser username
