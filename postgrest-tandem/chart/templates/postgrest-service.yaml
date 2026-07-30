@@ -13,5 +13,5 @@ spec:
     component: postgrest
   ports:
     - port: {{ .Values.postgrest.port }}
-      targetPort: 3000
+      targetPort: {{ .Values.postgrest.port }}
       name: http
