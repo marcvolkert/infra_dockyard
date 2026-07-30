@@ -2,21 +2,21 @@ apiVersion: apps/v1
 kind: StatefulSet
 metadata:
   namespace: {{ .Values.namespace }}
-  name: {{ include "name" . }}-postgres
+  name: {{ include "postgrest-tandem.fullname" . }}-postgres
   labels:
-    app: {{ include "name" . }}
+    app: {{ include "postgrest-tandem.fullname" . }}
     component: postgres
 spec:
-  serviceName: {{ include "name" . }}-postgres
+  serviceName: {{ include "postgrest-tandem.fullname" . }}-postgres
   replicas: 1
   selector:
     matchLabels:
-      app: {{ include "name" . }}
+      app: {{ include "postgrest-tandem.fullname" . }}
       component: postgres
   template:
     metadata:
       labels:
-        app: {{ include "name" . }}
+        app: {{ include "postgrest-tandem.fullname" . }}
         component: postgres
     spec:
       containers:
@@ -28,7 +28,7 @@ spec:
               name: postgres
           envFrom:
             - secretRef:
-                name: {{ include "name" . }}-postgres
+                name: {{ include "postgrest-tandem.fullname" . }}-postgres
           volumeMounts:
             - name: data
               mountPath: /var/lib/postgresql/data
@@ -65,4 +65,4 @@ spec:
       volumes:
         - name: data
           persistentVolumeClaim:
-            claimName: {{ include "name" . }}-postgres
+            claimName: {{ include "postgrest-tandem.fullname" . }}-postgres

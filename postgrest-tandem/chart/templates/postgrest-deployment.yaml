@@ -2,20 +2,20 @@ apiVersion: apps/v1
 kind: Deployment
 metadata:
   namespace: {{ .Values.namespace }}
-  name: {{ include "name" . }}-postgrest
+  name: {{ include "postgrest-tandem.fullname" . }}-postgrest
   labels:
-    app: {{ include "name" . }}
+    app: {{ include "postgrest-tandem.fullname" . }}
     component: postgrest
 spec:
   replicas: 1
   selector:
     matchLabels:
-      app: {{ include "name" . }}
+      app: {{ include "postgrest-tandem.fullname" . }}
       component: postgrest
   template:
     metadata:
       labels:
-        app: {{ include "name" . }}
+        app: {{ include "postgrest-tandem.fullname" . }}
         component: postgrest
     spec:
       initContainers:
@@ -25,7 +25,7 @@ spec:
             - sh
             - -c
             - |
-              until pg_isready -h {{ include "name" . }}-postgres -p {{ .Values.postgres.port }}; do
+              until pg_isready -h {{ include "postgrest-tandem.fullname" . }}-postgres -p {{ .Values.postgres.port }}; do
                 echo 'Waiting for PostgreSQL...'
                 sleep 2
               done
@@ -38,7 +38,7 @@ spec:
               name: http
           envFrom:
             - secretRef:
-                name: {{ include "name" . }}-postgrest
+                name: {{ include "postgrest-tandem.fullname" . }}-postgrest
           env:
             - name: PGRST_SERVER_PORT
               value: {{ .Values.postgrest.port | quote }}

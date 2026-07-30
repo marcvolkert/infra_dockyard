@@ -1,7 +1,7 @@
-1. PostgreSQL is now running at {{ include "name" . }}-postgres:{{ .Values.postgres.port }}
-2. PostgREST API is available at {{ include "name" . }}-postgrest:{{ .Values.postgrest.port }}
+1. PostgreSQL is now running at {{ include "postgrest-tandem.fullname" . }}-postgres:{{ .Values.postgres.port }}
+2. PostgREST API is available at {{ include "postgrest-tandem.fullname" . }}-postgrest:{{ .Values.postgrest.port }}
 
 To port-forward to the API:
-  kubectl port-forward svc/{{ include "name" . }}-postgrest {{ .Values.postgrest.port }}:{{ .Values.postgrest.port }}
+  kubectl port-forward svc/{{ include "postgrest-tandem.fullname" . }}-postgrest {{ .Values.postgrest.port }}:{{ .Values.postgrest.port }}
 
 Then access the API at: http://localhost:{{ .Values.postgrest.port }}

@@ -1,7 +1,7 @@
-{{- define "name" -}}
+{{- define "postgrest-tandem.fullname" -}}
 {{- if .Values.fullnameOverride }}
 {{- .Values.fullnameOverride | trunc 63 }}
 {{- else }}
-{{- .Chart.Name | trunc 63 }}
+{{- printf "%s-%s" .Release.Name .Chart.Name | trunc 63 }}
 {{- end }}
 {{- end }}

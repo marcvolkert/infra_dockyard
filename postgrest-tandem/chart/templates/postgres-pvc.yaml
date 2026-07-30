@@ -2,9 +2,9 @@ apiVersion: v1
 kind: PersistentVolumeClaim
 metadata:
   namespace: {{ .Values.namespace }}
-  name: {{ include "name" . }}-postgres
+  name: {{ include "postgrest-tandem.fullname" . }}-postgres
   labels:
-    app: {{ include "name" . }}
+    app: {{ include "postgrest-tandem.fullname" . }}
 spec:
   accessModes:
     - ReadWriteOnce
