@@ -14,7 +14,7 @@ The chart supports minimal configuration. Key values:
 
 | Key | Default | Description |
 |-----|---------|-------------|
-| `postgres.image` | `localhost/postgrest-db:16` | PostgreSQL image |
+| `postgres.image` | `ghcr.io/marcvolkert/postgrest-db:latest` | PostgreSQL image |
 | `postgres.password` | `change-me` | PostgreSQL superuser password |
 | `postgres.authenticatorPassword` | `change-me-too` | PostgREST authenticator password |
 | `postgres.storageSize` | `10Gi` | PVC storage size |
