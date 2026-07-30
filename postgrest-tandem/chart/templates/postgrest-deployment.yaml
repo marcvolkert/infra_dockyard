@@ -34,14 +34,14 @@ spec:
           image: {{ .Values.postgrest.image }}
           imagePullPolicy: IfNotPresent
           ports:
-            - containerPort: 3000
+            - containerPort: {{ .Values.postgrest.port }}
               name: http
           envFrom:
             - secretRef:
                 name: {{ include "name" . }}-postgrest
           env:
             - name: PGRST_SERVER_PORT
-              value: "3000"
+              value: {{ .Values.postgrest.port | quote }}
           livenessProbe:
             tcpSocket:
               port: 3000
