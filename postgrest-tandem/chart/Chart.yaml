@@ -1,0 +1,14 @@
+apiVersion: v2
+name: postgrest-tandem
+description: |
+  Umbrella chart for the PostgREST tandem: a custom PostgreSQL backend
+  image with PostgREST bootstrap data plus the PostgREST API deployment
+  that talks to it.
+type: application
+version: 1.0.0
+appVersion: "16"
+keywords:
+  - postgres
+  - postgrest
+  - database
+home: https://github.com/marcvolkert/infra_dockyard

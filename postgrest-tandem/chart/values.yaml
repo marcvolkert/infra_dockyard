@@ -1,0 +1,49 @@
+fullnameOverride: ""
+# Namespace to create and deploy into
+namespace: postgrest-tandem
+
+# PostgreSQL Database
+postgres:
+  # Docker image for PostgreSQL (with PostgREST bootstrap scripts baked in)
+  image: ghcr.io/marcvolkert/postgrest-db:latest
+  # PostgreSQL port
+  port: 5432
+  # Superuser username
+  username: postgres
+  # Superuser password (CHANGE THIS in production!)
+  password: change-me
+  # Database name
+  database: postgres
+  # Password for PostgREST authenticator role (CHANGE THIS in production!)
+  authenticatorPassword: change-me-too
+  # StorageClass for PersistentVolumeClaim (empty = cluster default)
+  storageClass: ""
+  # Storage size for database volume
+  storageSize: 10Gi
+  # Resource limits/requests for PostgreSQL container
+  resources: {}
+  # resources:
+  #   requests:
+  #     cpu: 100m
+  #     memory: 256Mi
+  #   limits:
+  #     cpu: 1
+  #     memory: 1Gi
+
+# PostgREST API
+postgrest:
+  # Docker image for PostgREST
+  image: postgrest/postgrest:latest
+  # HTTP API port
+  port: 3000
+  # PostgreSQL schemas to expose as REST endpoints
+  schemas: api
+  # Resource limits/requests for PostgREST container
+  resources: {}
+  # resources:
+  #   requests:
+  #     cpu: 50m
+  #     memory: 64Mi
+  #   limits:
+  #     cpu: 500m
+  #     memory: 256Mi
