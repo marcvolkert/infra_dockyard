@@ -9,7 +9,7 @@ PostgreSQL image for PostgREST-backed workloads.
 - [Build](#build)
 - [Run](#run)
 - [Smoke test](#smoke-test)
-- [Local integration tests (BATS)](#local-integration-tests-bats)
+- [Local integration tests (pytest)](#local-integration-tests-pytest)
   - [Run locally](#run-locally)
 - [CI/CD](#cicd)
   - [`test-postgrest-db` — integration tests on pull requests](#test-postgrest-db--integration-tests-on-pull-requests)
@@ -139,23 +139,27 @@ echo "$TOKEN"
 
 The token is suitable for `Authorization: Bearer <token>`.
 
-## Local integration tests (BATS)
+## Local integration tests (pytest)
 
-The integration suite under `postgrest-tandem/tests/` validates bootstrap scripts, auth/JWT behavior, and privilege boundaries directly via `psql`.
+The integration suite under `postgrest-tandem/image/tests/` validates bootstrap scripts, auth/JWT behavior, and privilege boundaries directly via `psql`.
 
 ### Run locally
 
 From the repository root:
 
-**With bats** — requires `bats`, `jq`, `psql`, and `podman` on your PATH:
+Create a virtual environment, install the test dependency, then run pytest:
 
 ```bash
-bats postgrest-tandem/tests/
+python3 -m venv .venv
+. .venv/bin/activate
+pip install -r postgrest-tandem/image/tests/requirements.txt
+pytest postgrest-tandem/image/tests/ -v
 ```
 
 Notes:
 
 - The test harness uses a fixed dummy credential (`AUTHENTICATOR_PASSWORD=testpw-ci-only`) for CI/local testing only.
+- Tests require `psql` plus `podman` or `docker` on your PATH.
 - Tests start and remove their own temporary database container.
 
 ## CI/CD
@@ -169,7 +173,7 @@ Two workflows ship with this repository, both located under `.github/workflows/`
 **Jobs (sequential):**
 
 1. **build** — builds the image with `docker/build-push-action` and exports it as a `.tar` artifact (`postgrest-db-image`).
-2. **integration-test** — downloads the artifact, loads it with `docker load`, installs `bats`, `jq`, and `psql`, then runs the full BATS suite via `bats postgrest-tandem/tests/` with `TEST_IMAGE=local/postgrest-db:ci`.
+2. **integration-test** — downloads the artifact, loads it with `docker load`, creates a temporary Python virtualenv, installs test dependencies from `postgrest-tandem/image/tests/requirements.txt`, and runs `pytest postgrest-tandem/image/tests/ -v` with `TEST_IMAGE=local/postgrest-db:ci`.
 
 The workflow uses the same image tag (`local/postgrest-db:ci`) and the same dummy credentials (`AUTHENTICATOR_PASSWORD=testpw-ci-only`) as the local test instructions above.
 
