@@ -4,8 +4,11 @@
 -- - login RPC to verify credentials and return a JWT.
 \set ON_ERROR_STOP on
 BEGIN;
+
 CREATE SCHEMA IF NOT EXISTS auth;
+
 CREATE EXTENSION IF NOT EXISTS pgcrypto WITH SCHEMA auth;
+
 -- User data with hashed passwords and a role for JWT claims.
 -- Two triggers are needed:
 -- 1) hash_password: on write, hash the plaintext password using bcrypt.
@@ -17,6 +20,7 @@ CREATE TABLE IF NOT EXISTS auth.users (
     password TEXT NOT NULL CHECK (PASSWORD ~ '^\$2[abxy]\$[0-9]{2}\$[./A-Za-z0-9]{53}$'), -- Enforce bcrypt hash format
     role TEXT NOT NULL CHECK (length(ROLE) < 512) DEFAULT 'anon'
 );
+
 CREATE OR REPLACE FUNCTION auth.hash_password ()
     RETURNS TRIGGER
     AS $$
@@ -32,10 +36,12 @@ BEGIN
 END;
 $$
 LANGUAGE plpgsql;
+
 CREATE TRIGGER hash_password_trigger
     BEFORE INSERT OR UPDATE ON auth.users
     FOR EACH ROW
     EXECUTE FUNCTION auth.hash_password ();
+
 CREATE OR REPLACE FUNCTION auth.check_role ()
     RETURNS TRIGGER
     AS $$
@@ -52,10 +58,12 @@ END IF;
 END;
 $$
 LANGUAGE plpgsql;
+
 CREATE CONSTRAINT TRIGGER check_role_trigger
     AFTER INSERT OR UPDATE ON auth.users
     FOR EACH ROW
     EXECUTE FUNCTION auth.check_role ();
+
 -- Now that the user table is set up, we provide facilities to generate JWTs for authenticated users.
 -- The login RPC is defined in 03-anon.sql, but the underlying signer function is here since it needs access to the JWT secret and we want to keep that out of reach from the anon role.
 DO $$
@@ -68,6 +76,7 @@ EXCEPTION
         NULL;
 END
 $$;
+
 CREATE OR REPLACE FUNCTION auth.sign_jwt (payload jsonb)
     RETURNS auth.jwt_token
     AS $$
@@ -95,7 +104,9 @@ CREATE OR REPLACE FUNCTION auth.sign_jwt (payload jsonb)
   return (f"{header_b64}.{payload_b64}.{sig_b64}",)
 $$
 LANGUAGE plpython3u;
+
 REVOKE ALL ON FUNCTION auth.sign_jwt (jsonb) FROM PUBLIC;
+
 -- With the user table and JWT signer in place, we can implement the login RPC that PostgREST will expose to anonymous callers.
 -- It verifies credentials and returns a signed JWT with the user's role and a short expiry.
 CREATE OR REPLACE FUNCTION auth.login (username text, PASSWORD TEXT)
@@ -121,6 +132,8 @@ END;
 $$
 LANGUAGE plpgsql
 SECURITY DEFINER;
+
 REVOKE ALL ON FUNCTION auth.login (text, text) FROM PUBLIC;
+
 COMMIT;
 
