@@ -4,17 +4,25 @@ PostgreSQL image for PostgREST-backed workloads.
 
 ## Table of Contents
 
-- [Files](#files)
-- [Init order](#init-order)
-- [Build](#build)
-- [Run](#run)
-- [Smoke test](#smoke-test)
-- [Local integration tests (pytest)](#local-integration-tests-pytest)
-  - [Run locally](#run-locally)
-- [CI/CD](#cicd)
-  - [`test-postgrest-db` — integration tests on pull requests](#test-postgrest-db--integration-tests-on-pull-requests)
-  - [`publish-postgrest-db` — image publish on release](#publish-postgrest-db--image-publish-on-release)
-- [Notes](#notes)
+- [Concepts](#concepts)
+  - [Files](#files)
+  - [Init order](#init-order)
+  - [How this image interacts with PostgREST](#how-this-image-interacts-with-postgrest)
+    - [Roles](#roles)
+    - [Schemas](#schemas)
+    - [JWT secret lifecycle](#jwt-secret-lifecycle)
+    - [Login flow](#login-flow)
+    - [Wiring PostgREST to this database](#wiring-postgrest-to-this-database)
+  - [Notes](#notes)
+- [Usage](#usage)
+  - [Build](#build)
+  - [Run](#run)
+  - [Smoke test](#smoke-test)
+  - [Local integration tests (pytest)](#local-integration-tests-pytest)
+    - [Run locally](#run-locally)
+  - [CI/CD](#cicd)
+    - [`test-postgrest-db` — integration tests on pull requests](#test-postgrest-db--integration-tests-on-pull-requests)
+    - [`publish-postgrest-db` — image publish on release](#publish-postgrest-db--image-publish-on-release)
 - [Upstream Attribution](#upstream-attribution)
 
 Key features: database-managed JWT secret, built-in auth/login RPC bootstrap, password hashing with pgcrypto, and plpython-based JWT signing without pgjwt.
@@ -23,12 +31,14 @@ For more information, see the official PostgREST docs: https://postgrest.org/en/
 
 Note: commands below use `podman`; using `docker` should work by replacing the binary name.
 
-## Files
+## Concepts
+
+### Files
 
 - `Containerfile`: Postgres base image plus runtime dependency (`plpython3u`).
 - `initdb/`: bootstrap scripts executed on first database initialization.
 
-## Init order
+### Init order
 
 Entrypoint runs scripts lexicographically:
 
@@ -46,7 +56,92 @@ Entrypoint runs scripts lexicographically:
    - creates `anon` role and `api` schema
    - exposes `api.login` and grants execute to `anon`
 
-## Build
+### How this image interacts with PostgREST
+
+This image is not a generic Postgres database — it is pre-wired so PostgREST can
+connect, authenticate requests, and mint/verify JWTs without any external
+identity provider or config-file secret. All of the moving parts below are
+created by the `initdb/` scripts during first boot.
+
+#### Roles
+
+- **`authenticator`** — the only role PostgREST connects to the database as
+  (`AUTHENTICATOR_PASSWORD`). It is `NOINHERIT LOGIN`, so it has no privileges
+  of its own beyond what's explicitly granted; it must `SET ROLE` into a
+  request role (e.g. `anon`) before running any query on behalf of a client.
+- **`anon`** — the role PostgREST switches into for unauthenticated requests.
+  It is `NOLOGIN` (never connects directly) and is only reachable via
+  `GRANT anon TO authenticator`.
+- Authenticated end users never get their own Postgres role. Instead, their
+  privileges are encoded as a `role` claim inside a signed JWT, and PostgREST
+  performs `SET ROLE <claim>` for the duration of that request.
+
+#### Schemas
+
+- **`api`** — the public-facing schema PostgREST exposes as the REST API
+  surface (e.g. via `db-schemas` in PostgREST's config). It currently exposes
+  `api.login`, granted to `anon` only.
+- **`auth`** — internal, not exposed to PostgREST. Holds `auth.users`
+  (bcrypt-hashed passwords, per-user `role` claim) and the `auth.login` /
+  `auth.sign_jwt` functions that actually verify credentials and issue tokens.
+- **`postgrest`** — internal, not exposed to PostgREST. Holds the JWT secret
+  singleton (`postgrest.jwt_secret`) and the `postgrest.pre_config()` /
+  `postgrest.rotate_jwt_secret()` functions.
+
+#### JWT secret lifecycle
+
+The signing secret lives in the database instead of a static config value:
+
+1. On first boot, `postgrest.rotate_jwt_secret()` generates a random secret
+   and stores it (as a singleton row) in `postgrest.jwt_secret`.
+2. PostgREST calls `postgrest.pre_config()` (via `db-pre-config` in its
+   config) on startup/config reload, which reads the current secret into
+   `pgrst.jwt_secret` for that session — PostgREST then uses it to verify
+   incoming bearer tokens.
+3. `auth.sign_jwt()` (called from `auth.login`) reads the same secret to sign
+   new tokens, so issuance and verification always stay in sync.
+4. Rotating the secret (`SELECT postgrest.rotate_jwt_secret();`) immediately
+   invalidates all previously issued tokens; only a superuser can call it.
+
+#### Login flow
+
+1. A client `POST`s credentials to PostgREST's `rpc/login` endpoint, which
+   PostgREST maps to `api.login(username, password)`.
+2. `api.login` is `SECURITY DEFINER` and granted to `anon` only, so an
+   unauthenticated PostgREST request (running as `anon`) can call it, but
+   nothing else in `auth`/`postgrest` is reachable directly.
+3. `api.login` delegates to `auth.login`, which checks the bcrypt hash in
+   `auth.users`, raises `invalid_password` (SQLSTATE `28P01`) on mismatch, and
+   otherwise calls `auth.sign_jwt` to build a token with the user's `role`
+   claim and a 15-minute expiry.
+4. The client uses the returned token as a Bearer token on subsequent
+   requests; PostgREST verifies it against `pgrst.jwt_secret` and
+   `SET ROLE`s into the claimed role for that request only.
+
+#### Wiring PostgREST to this database
+
+At minimum, PostgREST needs to connect as `authenticator` and know where to
+find the pre-config hook and exposed schema:
+
+```
+db-uri = "postgres://authenticator:<AUTHENTICATOR_PASSWORD>@<host>:5432/postgres"
+db-schemas = "api"
+db-anon-role = "anon"
+db-pre-config = "postgrest.pre_config"
+```
+
+No `jwt-secret` config value is needed — it's supplied at runtime by
+`postgrest.pre_config()` reading from `postgrest.jwt_secret`.
+
+### Notes
+
+- JWTs are signed (tamper-proof), not encrypted (readable by holder).
+- Keep `postgrest.jwt_secret` private and rotate periodically.
+- Existing tokens become invalid immediately after secret rotation.
+
+## Usage
+
+### Build
 
 ```bash
 cd postgrest-tandem/image
@@ -71,7 +166,7 @@ Tag strategy in the example above:
 
 If you publish to a registry, replace `localhost/postgrest-db` with your image path (for example `ghcr.io/<owner>/postgrest-db`).
 
-## Run
+### Run
 
 For additional supported environment variables, see the official Postgres image docs: https://hub.docker.com/_/postgres
 
@@ -97,7 +192,7 @@ podman run -d --name postgrest-db -p 5433:5432 \
    localhost/postgrest-db:"$VERSION"
 ```
 
-## Smoke test
+### Smoke test
 
 1. Verify the database is up:
 
@@ -139,11 +234,11 @@ echo "$TOKEN"
 
 The token is suitable for `Authorization: Bearer <token>`.
 
-## Local integration tests (pytest)
+### Local integration tests (pytest)
 
 The integration suite under `postgrest-tandem/image/tests/` validates bootstrap scripts, auth/JWT behavior, and privilege boundaries directly via `psql`.
 
-### Run locally
+#### Run locally
 
 From the repository root:
 
@@ -162,11 +257,11 @@ Notes:
 - Tests require `psql` plus `podman` or `docker` on your PATH.
 - Tests start and remove their own temporary database container.
 
-## CI/CD
+### CI/CD
 
 Two workflows ship with this repository, both located under `.github/workflows/`.
 
-### `test-postgrest-db` — integration tests on pull requests
+#### `test-postgrest-db` — integration tests on pull requests
 
 **Trigger:** any pull request that targets `dev` or `main` and touches a file inside `postgrest-tandem/**`.
 
@@ -177,7 +272,7 @@ Two workflows ship with this repository, both located under `.github/workflows/`
 
 The workflow uses the same image tag (`local/postgrest-db:ci`) and the same dummy credentials (`AUTHENTICATOR_PASSWORD=testpw-ci-only`) as the local test instructions above.
 
-### `publish-postgrest-db` — image publish on release
+#### `publish-postgrest-db` — image publish on release
 
 **Trigger:** a GitHub release is published (i.e. the `published` release event). Works for both full releases and pre-releases.
 
@@ -191,12 +286,6 @@ The workflow uses the same image tag (`local/postgrest-db:ci`) and the same dumm
 4. **Build and push** — builds from `postgrest-tandem/image/Containerfile` with `IMAGE_VERSION`, `VCS_REF` (full commit SHA), `SOURCE_URL`, and `POSTGRES_BASE_TAG=16` baked in as OCI labels, then pushes to GHCR.
 
 To publish a new version, create and publish a GitHub release whose tag follows semver (e.g. `v1.2.3`). Pre-releases (marked as pre-release on GitHub) receive only the version tag; stable releases additionally move the `latest` tag.
-
-## Notes
-
-- JWTs are signed (tamper-proof), not encrypted (readable by holder).
-- Keep `postgrest.jwt_secret` private and rotate periodically.
-- Existing tokens become invalid immediately after secret rotation.
 
 ## Upstream Attribution
 
