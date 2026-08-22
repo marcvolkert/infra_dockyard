@@ -27,6 +27,16 @@ class CommandResult:
         return "\n".join(part for part in (self.stdout, self.stderr) if part).strip()
 
 
+def decode_jwt_payload(token: str) -> dict[str, object]:
+    """Decode and parse the JWT payload segment as JSON."""
+    parts = token.split(".")
+    if len(parts) != 3:
+        raise ValueError(f"malformed token: expected 3 parts, got {len(parts)}")
+    payload = parts[1]
+    payload += "=" * (-len(payload) % 4)
+    return json.loads(base64.urlsafe_b64decode(payload).decode("utf-8"))
+
+
 class PostgrestTestHarness:
     """Utility wrapper for container lifecycle and database test commands."""
 
@@ -130,20 +140,11 @@ class PostgrestTestHarness:
         )
         assert result.returncode == 0, result.output
 
-    @staticmethod
-    def decode_jwt_payload(token: str) -> dict[str, object]:
-        """Decode and parse the JWT payload segment as JSON."""
-        parts = token.split(".")
-        if len(parts) != 3:
-            raise ValueError(f"malformed token: expected 3 parts, got {len(parts)}")
-        payload = parts[1]
-        payload += "=" * (-len(payload) % 4)
-        return json.loads(base64.urlsafe_b64decode(payload).decode("utf-8"))
-
-    @staticmethod
-    def parse_secret_row(output: str) -> tuple[str, datetime]:
-        """Parse 'secret|updated_at' query output into typed values."""
-        secret, updated_at = output.split("|", 1)
+    def jwt_secret_row(self) -> tuple[str, datetime]:
+        """Fetch the current JWT secret and its last-updated timestamp."""
+        result = self.psql_super("SELECT secret, updated_at FROM postgrest.jwt_secret LIMIT 1;")
+        assert result.returncode == 0, result.output
+        secret, updated_at = result.stdout.split("|", 1)
         return secret, datetime.fromisoformat(updated_at)
 
 

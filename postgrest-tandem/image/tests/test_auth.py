@@ -4,6 +4,8 @@ import time
 
 import pytest
 
+from conftest import decode_jwt_payload
+
 pytestmark = pytest.mark.usefixtures("alice_user")
 
 
@@ -22,7 +24,7 @@ def test_auth_login_returns_jwt(postgrest_db):
     assert token
     assert len(token.split(".")) == 3
 
-    payload = postgrest_db.decode_jwt_payload(token)
+    payload = decode_jwt_payload(token)
     now_epoch = int(time.time())
 
     assert payload["role"] == "anon"
