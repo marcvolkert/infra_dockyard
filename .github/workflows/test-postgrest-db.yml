@@ -51,9 +51,11 @@ jobs:
       - name: Install test dependencies
         run: |
           sudo apt-get update
-          sudo apt-get install -y bats bats-support bats-assert postgresql-client jq
-      - name: Run BATS integration tests
+          sudo apt-get install -y python3-venv postgresql-client
+          python3 -m venv /tmp/postgrest-db-tests
+          /tmp/postgrest-db-tests/bin/pip install -r postgrest-tandem/requirements-test.txt
+      - name: Run pytest integration tests
         env:
           TEST_IMAGE: local/postgrest-db:ci
           CONTAINER_RUNTIME: docker
-        run: bats postgrest-tandem/tests/
+        run: /tmp/postgrest-db-tests/bin/pytest postgrest-tandem/tests/ -v
