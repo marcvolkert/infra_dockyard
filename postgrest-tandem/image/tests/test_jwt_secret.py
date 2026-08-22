@@ -1,4 +1,8 @@
-def test_jwt_secret_singleton_has_exactly_one_non_empty_long_secret(postgrest_db):
+"""JWT secret bootstrap and rotation integration tests."""
+
+
+def test_jwt_secret_singleton(postgrest_db):
+    """JWT secret table stores exactly one sufficiently long secret."""
     result = postgrest_db.psql_super("SELECT count(*) FROM postgrest.jwt_secret;")
     assert result.returncode == 0, result.output
     assert result.stdout == "1"
@@ -8,7 +12,8 @@ def test_jwt_secret_singleton_has_exactly_one_non_empty_long_secret(postgrest_db
     assert int(result.stdout) >= 64
 
 
-def test_pre_config_exposes_the_persisted_secret_via_pgrst_jwt_secret(postgrest_db):
+def test_pre_config_sets_jwt_secret(postgrest_db):
+    """pre_config publishes the same secret through pgrst.jwt_secret."""
     result = postgrest_db.psql_super(
         "WITH cfg AS (SELECT postgrest.pre_config()) "
         "SELECT current_setting('pgrst.jwt_secret', true) FROM cfg;"
@@ -21,7 +26,8 @@ def test_pre_config_exposes_the_persisted_secret_via_pgrst_jwt_secret(postgrest_
     assert result.stdout == config_secret
 
 
-def test_rotate_jwt_secret_changes_secret_and_advances_updated_at(postgrest_db):
+def test_rotate_jwt_secret(postgrest_db):
+    """Secret rotation changes secret material and bumps updated_at."""
     result = postgrest_db.psql_super(
         "SELECT secret || '|' || updated_at::text FROM postgrest.jwt_secret LIMIT 1;"
     )
