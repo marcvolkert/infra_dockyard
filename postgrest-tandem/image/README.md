@@ -141,7 +141,7 @@ The token is suitable for `Authorization: Bearer <token>`.
 
 ## Local integration tests (pytest)
 
-The integration suite under `postgrest-tandem/tests/` validates bootstrap scripts, auth/JWT behavior, and privilege boundaries directly via `psql`.
+The integration suite under `postgrest-tandem/image/tests/` validates bootstrap scripts, auth/JWT behavior, and privilege boundaries directly via `psql`.
 
 ### Run locally
 
@@ -152,8 +152,8 @@ Create a virtual environment, install the test dependency, then run pytest:
 ```bash
 python3 -m venv .venv
 . .venv/bin/activate
-pip install -r postgrest-tandem/tests/requirements.txt
-pytest postgrest-tandem/tests/ -v
+pip install -r postgrest-tandem/image/tests/requirements.txt
+pytest postgrest-tandem/image/tests/ -v
 ```
 
 Notes:
@@ -173,7 +173,7 @@ Two workflows ship with this repository, both located under `.github/workflows/`
 **Jobs (sequential):**
 
 1. **build** — builds the image with `docker/build-push-action` and exports it as a `.tar` artifact (`postgrest-db-image`).
-2. **integration-test** — downloads the artifact, loads it with `docker load`, creates a temporary Python virtualenv, installs test dependencies from `postgrest-tandem/tests/requirements.txt`, and runs `pytest postgrest-tandem/tests/ -v` with `TEST_IMAGE=local/postgrest-db:ci`.
+2. **integration-test** — downloads the artifact, loads it with `docker load`, creates a temporary Python virtualenv, installs test dependencies from `postgrest-tandem/image/tests/requirements.txt`, and runs `pytest postgrest-tandem/image/tests/ -v` with `TEST_IMAGE=local/postgrest-db:ci`.
 
 The workflow uses the same image tag (`local/postgrest-db:ci`) and the same dummy credentials (`AUTHENTICATOR_PASSWORD=testpw-ci-only`) as the local test instructions above.
 

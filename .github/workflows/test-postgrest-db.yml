@@ -53,9 +53,9 @@ jobs:
           sudo apt-get update
           sudo apt-get install -y python3-venv postgresql-client
           python3 -m venv /tmp/postgrest-db-tests
-          /tmp/postgrest-db-tests/bin/pip install -r postgrest-tandem/tests/requirements.txt
+          /tmp/postgrest-db-tests/bin/pip install -r postgrest-tandem/image/tests/requirements.txt
       - name: Run pytest integration tests
         env:
           TEST_IMAGE: local/postgrest-db:ci
           CONTAINER_RUNTIME: docker
-        run: /tmp/postgrest-db-tests/bin/pytest postgrest-tandem/tests/ -v
+        run: /tmp/postgrest-db-tests/bin/pytest postgrest-tandem/image/tests/ -v
