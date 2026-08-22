@@ -28,20 +28,12 @@ def test_pre_config_sets_jwt_secret(postgrest_db):
 
 def test_rotate_jwt_secret(postgrest_db):
     """Secret rotation changes secret material and bumps updated_at."""
-    result = postgrest_db.psql_super(
-        "SELECT secret || '|' || updated_at::text FROM postgrest.jwt_secret LIMIT 1;"
-    )
-    assert result.returncode == 0, result.output
-    before_secret, before_updated_at = postgrest_db.parse_secret_row(result.stdout)
+    before_secret, before_updated_at = postgrest_db.jwt_secret_row()
 
     result = postgrest_db.psql_super("SELECT pg_sleep(1); SELECT postgrest.rotate_jwt_secret();")
     assert result.returncode == 0, result.output
 
-    result = postgrest_db.psql_super(
-        "SELECT secret || '|' || updated_at::text FROM postgrest.jwt_secret LIMIT 1;"
-    )
-    assert result.returncode == 0, result.output
-    after_secret, after_updated_at = postgrest_db.parse_secret_row(result.stdout)
+    after_secret, after_updated_at = postgrest_db.jwt_secret_row()
 
     assert after_secret != before_secret
     assert after_updated_at > before_updated_at
