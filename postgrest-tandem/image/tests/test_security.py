@@ -1,22 +1,25 @@
-import pytest
+"""Permission-boundary and security-definer integration tests."""
 
+import pytest
 
 pytestmark = pytest.mark.usefixtures("alice_user")
 
 
-def test_public_and_anon_cannot_call_auth_sign_jwt(postgrest_db):
-    result = postgrest_db.psql_authenticator("SELECT auth.sign_jwt('{\"role\":\"anon\"}'::jsonb);")
+def test_sign_jwt_denied_for_public_and_anon(postgrest_db):
+    """Non-privileged roles cannot call the low-level JWT signer."""
+    result = postgrest_db.psql_authenticator('SELECT auth.sign_jwt(\'{"role":"anon"}\'::jsonb);')
     assert result.returncode != 0
     assert "permission denied" in result.output
 
     result = postgrest_db.psql_authenticator(
-        "SET ROLE anon; SELECT auth.sign_jwt('{\"role\":\"anon\"}'::jsonb);"
+        'SET ROLE anon; SELECT auth.sign_jwt(\'{"role":"anon"}\'::jsonb);'
     )
     assert result.returncode != 0
     assert "permission denied" in result.output
 
 
-def test_public_and_anon_cannot_rotate_jwt_secret(postgrest_db):
+def test_rotate_secret_denied_for_public_and_anon(postgrest_db):
+    """Non-privileged roles cannot rotate JWT secrets."""
     result = postgrest_db.psql_authenticator("SELECT postgrest.rotate_jwt_secret();")
     assert result.returncode != 0
     assert "permission denied" in result.output
@@ -26,13 +29,17 @@ def test_public_and_anon_cannot_rotate_jwt_secret(postgrest_db):
     assert "permission denied" in result.output
 
 
-def test_anon_cannot_call_auth_login_directly(postgrest_db):
-    result = postgrest_db.psql_authenticator("SET ROLE anon; SELECT auth.login('alice', 'correct-password');")
+def test_auth_login_denied_for_anon(postgrest_db):
+    """The anon role cannot execute auth.login directly."""
+    result = postgrest_db.psql_authenticator(
+        "SET ROLE anon; SELECT auth.login('alice', 'correct-password');"
+    )
     assert result.returncode != 0
     assert "permission denied" in result.output
 
 
-def test_api_login_execute_privilege_is_restricted_to_anon(postgrest_db):
+def test_api_login_execute_privileges(postgrest_db):
+    """EXECUTE on api.login is granted to anon and denied to others."""
     result = postgrest_db.psql_super(
         "SELECT has_function_privilege('anon', 'api.login(text,text)', 'EXECUTE') || '|' || "
         "has_function_privilege('authenticator', 'api.login(text,text)', 'EXECUTE') || '|' || "
@@ -42,19 +49,23 @@ def test_api_login_execute_privilege_is_restricted_to_anon(postgrest_db):
     assert result.stdout == "true|false|false"
 
 
-def test_api_login_requires_role_switch_to_anon_for_authenticator_session(postgrest_db):
+def test_api_login_requires_anon_role(postgrest_db):
+    """Authenticator must SET ROLE anon before calling api.login."""
     result = postgrest_db.psql_authenticator("SELECT api.login('alice', 'correct-password');")
     assert result.returncode != 0
     assert "permission denied" in result.output
 
-    result = postgrest_db.psql_authenticator("SET ROLE anon; SELECT (api.login('alice', 'correct-password')).token;")
+    result = postgrest_db.psql_authenticator(
+        "SET ROLE anon; SELECT (api.login('alice', 'correct-password')).token;"
+    )
     assert result.returncode == 0, result.output
     token = result.stdout.splitlines()[-1]
     assert token
     assert len(token.split(".")) == 3
 
 
-def test_api_login_called_as_anon_preserves_invalid_password_sqlstate_28p01(postgrest_db):
+def test_api_login_wrong_password_sqlstate(postgrest_db):
+    """api.login preserves invalid_password SQLSTATE 28P01 semantics."""
     sql = """
     SET ROLE anon;
     DO $$ BEGIN
@@ -69,23 +80,30 @@ def test_api_login_called_as_anon_preserves_invalid_password_sqlstate_28p01(post
     assert "caught:28P01" in result.output
 
 
-def test_anon_cannot_select_postgrest_jwt_secret_or_auth_users(postgrest_db):
-    result = postgrest_db.psql_authenticator("SET ROLE anon; SELECT secret FROM postgrest.jwt_secret LIMIT 1;")
+def test_anon_cannot_read_secret_or_users(postgrest_db):
+    """anon cannot read JWT secret material or auth.users rows."""
+    result = postgrest_db.psql_authenticator(
+        "SET ROLE anon; SELECT secret FROM postgrest.jwt_secret LIMIT 1;"
+    )
     assert result.returncode != 0
     assert "permission denied" in result.output
 
-    result = postgrest_db.psql_authenticator("SET ROLE anon; SELECT username FROM auth.users LIMIT 1;")
+    result = postgrest_db.psql_authenticator(
+        "SET ROLE anon; SELECT username FROM auth.users LIMIT 1;"
+    )
     assert result.returncode != 0
     assert "permission denied" in result.output
 
 
-def test_authenticator_cannot_select_auth_users_directly(postgrest_db):
+def test_authenticator_cannot_read_users(postgrest_db):
+    """authenticator role cannot directly read auth.users."""
     result = postgrest_db.psql_authenticator("SELECT username FROM auth.users LIMIT 1;")
     assert result.returncode != 0
     assert "permission denied" in result.output
 
 
-def test_api_login_and_auth_login_are_security_definer_owned_by_postgres(postgrest_db):
+def test_login_functions_security_definer_owner(postgrest_db):
+    """login functions are SECURITY DEFINER and owned by postgres."""
     result = postgrest_db.psql_super(
         "SELECT n.nspname || '.' || p.proname || '|' || p.prosecdef || '|' || pg_get_userbyid(p.proowner) "
         "FROM pg_proc p "

@@ -1,18 +1,21 @@
+"""Authentication behavior integration tests."""
+
 import time
 
 import pytest
 
-
 pytestmark = pytest.mark.usefixtures("alice_user")
 
 
-def test_storing_a_user_hashes_password_with_bcrypt(postgrest_db):
+def test_user_password_is_bcrypt(postgrest_db):
+    """Persisted user passwords are stored as bcrypt hashes."""
     result = postgrest_db.psql_super("SELECT password FROM auth.users WHERE username = 'alice';")
     assert result.returncode == 0, result.output
     assert result.stdout.startswith(("$2a$", "$2b$"))
 
 
-def test_auth_login_returns_a_jwt_with_role_and_roughly_15_minute_expiry(postgrest_db):
+def test_auth_login_returns_jwt(postgrest_db):
+    """Successful login returns a JWT with anon role and ~15 minute expiry."""
     result = postgrest_db.psql_super("SELECT (auth.login('alice', 'correct-password')).token;")
     assert result.returncode == 0, result.output
     token = result.stdout
@@ -26,7 +29,8 @@ def test_auth_login_returns_a_jwt_with_role_and_roughly_15_minute_expiry(postgre
     assert now_epoch + 14 * 60 <= int(payload["exp"]) <= now_epoch + 16 * 60
 
 
-def test_auth_login_wrong_password_raises_invalid_password_sqlstate_28p01(postgrest_db):
+def test_auth_login_wrong_password_sqlstate(postgrest_db):
+    """Wrong password preserves PostgreSQL invalid_password SQLSTATE 28P01."""
     sql = """
     DO $$ BEGIN
       PERFORM auth.login('alice', 'wrong-password');
@@ -40,7 +44,8 @@ def test_auth_login_wrong_password_raises_invalid_password_sqlstate_28p01(postgr
     assert "caught:28P01" in result.output
 
 
-def test_inserting_user_with_unknown_role_is_rejected(postgrest_db):
+def test_insert_user_unknown_role(postgrest_db):
+    """Inserts fail when referencing a role that does not exist."""
     result = postgrest_db.psql_super_raw(
         "INSERT INTO auth.users (username, password, role) "
         "VALUES ('missing-role', 'correct-password', 'does_not_exist');"
@@ -49,7 +54,8 @@ def test_inserting_user_with_unknown_role_is_rejected(postgrest_db):
     assert 'role "does_not_exist" does not exist' in result.output
 
 
-def test_inserting_user_with_short_password_is_rejected(postgrest_db):
+def test_insert_user_short_password(postgrest_db):
+    """Inserts fail for passwords shorter than policy minimum."""
     result = postgrest_db.psql_super_raw(
         "INSERT INTO auth.users (username, password, role) VALUES ('short-pass', 'short', 'anon');"
     )
@@ -57,7 +63,8 @@ def test_inserting_user_with_short_password_is_rejected(postgrest_db):
     assert "password must be between 8 and 512 characters" in result.output
 
 
-def test_updating_password_rehashes_to_a_different_bcrypt_hash(postgrest_db):
+def test_update_password_rehashes(postgrest_db):
+    """Password updates rehash and change the stored bcrypt value."""
     result = postgrest_db.psql_super("SELECT password FROM auth.users WHERE username = 'alice';")
     assert result.returncode == 0, result.output
     before_hash = result.stdout

@@ -17,6 +17,7 @@ charts/*/Chart.lock
 .DS_Store
 .idea/
 .vscode/
+__pycache__/
 *.swp
 *.swo
 *.bak
