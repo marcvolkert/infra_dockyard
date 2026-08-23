@@ -44,12 +44,12 @@ spec:
               value: {{ .Values.postgrest.port | quote }}
           livenessProbe:
             tcpSocket:
-              port: 3000
+              port: {{ .Values.postgrest.port }}
             initialDelaySeconds: 60
             periodSeconds: 10
           readinessProbe:
             tcpSocket:
-              port: 3000
+              port: {{ .Values.postgrest.port }}
             initialDelaySeconds: 15
             periodSeconds: 5
           {{- if .Values.postgrest.resources }}
